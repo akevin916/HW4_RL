@@ -4,11 +4,15 @@ watch_game.py — 直接看 Pong agent 打球
 這支腳本會開一個視窗，讓你「肉眼看到」agent 在打球。
 你可以選擇：
   - 看「完全隨機」的 agent（不需要預訓練）
-  - 看「已存的訓練模型」打球（需要先跑過 P1/P5 之類的實驗）
+  - 看「已存的訓練模型」打球（需要先跑過 P1/P4/P5 之類的實驗）
 
 用法：
-  python pong/watch_game.py              # 看隨機 agent
-  python pong/watch_game.py --model pong/results/P5_reward_shaping/model_default  # 看訓練模型
+  python pong/watch_game.py                                               # 隨機 agent
+  python pong/watch_game.py --model pong/results/P1_frame_stack/model_1_Frame_No_Stacking --nstack 1
+  python pong/watch_game.py --model pong/results/P1_frame_stack/model_4_Frames_Standard   --nstack 4
+  python pong/watch_game.py --model pong/results/P5_reward_shaping/model_default          --nstack 4
+
+  ⚠  --nstack 必須和訓練時的 n_stack 一致（P1 有 1 和 4 兩種；P4/P5 都是 4）
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 可修改的地方：
@@ -55,35 +59,41 @@ def watch_random(n_episodes: int = NUM_EPISODES):
     env.close()
 
 
-def watch_trained(model_path: str, n_episodes: int = NUM_EPISODES):
-    """看訓練好的模型打球"""
+def watch_trained(model_path: str, n_stack: int = 4, n_episodes: int = NUM_EPISODES):
+    """看訓練好的模型打球（n_stack 需與訓練時相同）"""
     from stable_baselines3 import DQN
     from stable_baselines3.common.atari_wrappers import AtariWrapper
+    from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
+    from stable_baselines3.common.monitor import Monitor
 
-    print(f"載入模型：{model_path}")
-    # 評估用環境（render_mode=human）
-    base_env = gym.make("ALE/Pong-v5", render_mode="human")
-    env = AtariWrapper(base_env, clip_reward=True)
+    print(f"載入模型：{model_path}  (n_stack={n_stack})")
+
+    # 建立與訓練時相同結構的 VecEnv（render_mode=human 套在最外層）
+    def _make():
+        base_env = gym.make("ALE/Pong-v5", render_mode="human")
+        env = AtariWrapper(base_env, clip_reward=True)
+        return Monitor(env)
+
+    vec_env = DummyVecEnv([_make])
+    vec_env = VecFrameStack(vec_env, n_stack=n_stack)
 
     model = DQN.load(model_path, device="cpu")   # 觀看用 CPU 就夠
 
     for ep in range(n_episodes):
-        obs, _ = env.reset()
+        obs = vec_env.reset()
         total_reward = 0.0
         steps = 0
         done = False
         while not done:
-            # SB3 需要 (1, H, W, C) 格式，但 AtariWrapper 輸出 (H, W) 灰階
-            # 直接用 predict 需要對應格式，這裡轉成 numpy array
             action, _ = model.predict(obs, deterministic=True)
-            obs, reward, terminated, truncated, info = env.step(int(action))
-            total_reward += reward
+            obs, reward, dones, info = vec_env.step(action)
+            total_reward += float(reward[0])
             steps += 1
-            done = terminated or truncated
+            done = dones[0]
             if FPS > 0:
                 time.sleep(1.0 / FPS)
         print(f"[Trained] Episode {ep+1}/{n_episodes} | steps={steps} | reward={total_reward:.1f}")
-    env.close()
+    vec_env.close()
 
 
 if __name__ == "__main__":
@@ -92,11 +102,13 @@ if __name__ == "__main__":
         "--model", type=str, default=None,
         help="訓練模型路徑（不含 .zip），省略則使用隨機 agent"
     )
+    parser.add_argument("--nstack", type=int, default=4,
+                        help="frame stack 數（P1 的 1-frame 模型用 1；其餘用 4）")
     parser.add_argument("--episodes", type=int, default=NUM_EPISODES)
     args = parser.parse_args()
 
     if args.model:
-        watch_trained(args.model, args.episodes)
+        watch_trained(args.model, args.nstack, args.episodes)
     else:
         print("沒有指定模型，使用隨機 agent（亂按）...")
         watch_random(args.episodes)
