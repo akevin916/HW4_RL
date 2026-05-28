@@ -62,19 +62,18 @@ def watch_random(n_episodes: int = NUM_EPISODES):
 def watch_trained(model_path: str, n_stack: int = 4, n_episodes: int = NUM_EPISODES):
     """看訓練好的模型打球（n_stack 需與訓練時相同）"""
     from stable_baselines3 import DQN
-    from stable_baselines3.common.atari_wrappers import AtariWrapper
-    from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
-    from stable_baselines3.common.monitor import Monitor
+    from stable_baselines3.common.env_util import make_atari_env
+    from stable_baselines3.common.vec_env import VecFrameStack
 
     print(f"載入模型：{model_path}  (n_stack={n_stack})")
 
-    # 建立與訓練時相同結構的 VecEnv（render_mode=human 套在最外層）
-    def _make():
-        base_env = gym.make("ALE/Pong-v5", render_mode="human")
-        env = AtariWrapper(base_env, clip_reward=True)
-        return Monitor(env)
-
-    vec_env = DummyVecEnv([_make])
+    # 使用與訓練完全一致的 make_atari_env（內含 VecTransposeImage），
+    # 只多傳 render_mode="human" 讓畫面顯示出來
+    vec_env = make_atari_env(
+        "ALE/Pong-v5",
+        n_envs=1,
+        env_kwargs={"render_mode": "human"},
+    )
     vec_env = VecFrameStack(vec_env, n_stack=n_stack)
 
     model = DQN.load(model_path, device="cpu")   # 觀看用 CPU 就夠

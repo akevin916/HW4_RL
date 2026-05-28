@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
 # run_all_experiments.sh
-# 依序執行所有 RL 實驗（Pong × 2 + LunarLander × 4）
+# 依序執行所有 RL 實驗（Pong × 3 + LunarLander × 5）
 # 使用方式：bash run_all_experiments.sh
 # =============================================================================
 
@@ -51,12 +51,14 @@ run_exp() {
 # ── Pong 實驗 ─────────────────────────────────────────────────────────────────
 run_exp "P1_Frame_Stacking"   "pong/exp_P1_frame_stack.py"
 run_exp "P4_Epsilon_Decay"    "pong/exp_P4_epsilon.py"
+run_exp "P5_Reward_Shaping"   "pong/exp_P5_reward_shaping.py"
 
 # ── LunarLander 實驗 ──────────────────────────────────────────────────────────
 run_exp "L1_Algo_Compare"     "lunarlander/exp_L1_algo_compare.py"
 run_exp "L2_Action_Space"     "lunarlander/exp_L2_action_space.py"
 run_exp "L3_LR_Sensitivity"   "lunarlander/exp_L3_lr_sensitivity.py"
 run_exp "L4_Network_Size"     "lunarlander/exp_L4_network_size.py"
+run_exp "L5_Reward_Shaping"   "lunarlander/exp_L5_reward_shaping.py"
 
 # ── 完成摘要 ──────────────────────────────────────────────────────────────────
 echo "======================================================"
